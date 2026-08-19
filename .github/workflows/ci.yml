@@ -1,0 +1,126 @@
+name: CI
+
+# 3 job gác chất lượng mỗi PR vào main + push main:
+#   typecheck  — tsc --noEmit (không cần DB)
+#   unit       — Vitest (Postgres tạm: tạo schema app + migrate deploy trước, rồi vitest)
+#   e2e        — Playwright (Postgres tạm + browser; global-setup tự migrate + seed user)
+# CI KHÔNG bao giờ đụng DB minipc/prod — mỗi job dựng Postgres tạm riêng, xong vứt.
+# TZ ép Asia/Ho_Chi_Minh (bất biến #3): assert P&L neo theo ngày giờ VN, runner UTC sẽ lệch.
+# Node 24: harness e2e nạp .ts động (global-setup import src/lib/password) → cần Node có
+# native TypeScript (máy dev chạy Node 25). Node 20 không nạp được .ts → e2e chết ở seed.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  typecheck:
+    name: Typecheck (tsc --noEmit)
+    runs-on: ubuntu-latest
+    env:
+      # Chỉ cần biến TỒN TẠI cho prisma generate / tsc — KHÔNG kết nối thật.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci?schema=app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npx tsc --noEmit
+
+  unit:
+    name: Unit tests (Vitest)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: hogikids_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d hogikids_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TZ: Asia/Ho_Chi_Minh
+      # DATABASE_URL PHẢI khác TEST_DATABASE_URL (guard tests/setup.ts chống xoá nhầm DB thật).
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/postgres?schema=app
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/hogikids_test?schema=app
+      SESSION_SECRET: ci-session-secret-not-for-prod-min-32-characters
+      INGEST_SECRET: ci-ingest-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Tạo schema app trong DB test
+        run: echo 'CREATE SCHEMA IF NOT EXISTS app;' | npx prisma db execute --stdin --url "postgresql://ci:ci@localhost:5432/hogikids_test?schema=app"
+      - name: Migrate deploy vào DB test
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/hogikids_test?schema=app
+      - run: npm test
+
+  e2e:
+    name: E2E tests (Playwright)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: hogikids_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d hogikids_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TZ: Asia/Ho_Chi_Minh
+      # global-setup.ts tự migrate + seed; chỉ cần DATABASE_URL khác TEST (guard) + schema app tồn tại.
+      DATABASE_URL: postgresql://ci:ci@localhost:5432/postgres?schema=app
+      TEST_DATABASE_URL: postgresql://ci:ci@localhost:5432/hogikids_test?schema=app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Tạo schema app trong DB test
+        run: echo 'CREATE SCHEMA IF NOT EXISTS app;' | npx prisma db execute --stdin --url "postgresql://ci:ci@localhost:5432/hogikids_test?schema=app"
+      - name: Migrate + seed reference data (Channel/Category/Setting) vào DB test
+        run: |
+          npx prisma migrate deploy
+          npx prisma db seed
+        env:
+          # seed.ts tạo 4 Channel + 7 Category + 2 Setting (Order.channelId FK cần Channel)
+          # rồi 1 user. global-setup.ts sau đó xoá user + tạo user test riêng — Channel giữ nguyên.
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/hogikids_test?schema=app
+          INIT_EMAIL: ci-seed@hogikids.test
+          INIT_PASSWORD: ci-seed-password
+      - name: Cài Playwright browser (chromium)
+        run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Lưu report khi lỗi
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

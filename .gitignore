@@ -1,0 +1,65 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+/playwright-report
+/test-results
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+!.env.example
+
+# Pancake raw API dumps (chứa PII — KHÔNG commit; chỉ fixtures đã ẩn danh mới commit)
+tests/fixtures/pancake/_raw/
+
+# vercel
+.vercel
+
+# uploaded files (logo, ...) — bind-mounted volume in prod, not committed
+public/uploads/*
+!public/uploads/.gitkeep
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# claude code local settings
+.claude/
+
+# codex CLI local config (chứa MCP secrets n8n) — KHÔNG commit
+.codex/
+
+# Discovery probe payloads — chứa PII thật (customers: CCCD/SĐT/email/địa chỉ).
+# Chỉ commit bản tóm tắt shape trong docs/, KHÔNG commit payload thô.
+tests/fixtures/pancake/_raw/probe/
+
+# File tài chính Shopee/import tải tay (chứa số TK ngân hàng, tên chủ TK) — KHÔNG commit.
+# Chặn xlsx ở thư mục GỐC (fixtures test nằm trong tests/ nên không bị đụng).
+/*.xlsx

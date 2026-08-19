@@ -1,0 +1,26 @@
+services:
+  app:
+    container_name: hogikids-app
+    build: .
+    image: hogikids-app
+    env_file: .env
+    environment:
+      TZ: Asia/Ho_Chi_Minh           # giờ VN cho new Date()/date-fns (đồng bộ ENV TZ trong Dockerfile — B1)
+    ports:
+      - "127.0.0.1:3000:3000"        # chỉ localhost — reverse proxy/tunnel (host) + debug; KHÔNG phơi ra LAN
+    volumes:
+      - ./backups:/backups           # pre-restore dump BỀN qua rebuild + thư mục backups của container đọc được (C3)
+      - ./uploads:/app/public/uploads # logo shop BỀN qua rebuild, KHÔNG lưu DB (C6)
+    restart: unless-stopped
+    # Trần RAM 3g: minipc chạy CHUNG với Postgres + n8n nên app không được ăn hết RAM máy.
+    # Đặt thấp hơn (vd 1-2g) SẼ giết tiến trình restore giữa lúc bung nén — dump gzip cho
+    # phép bung tới 2GiB trước khi chặn bomb (src/lib/backup/run-restore.ts:18-21), cộng
+    # RAM nền của Next.js thì 2g là quá sát; 3g còn dư đệm để restore không bị OOM-kill.
+    mem_limit: 3g
+    networks: [supabase_default]   # supabase-db VÀ hogikids-n8n ĐỀU ở supabase_default (đã verify) → app gọi cả hai bằng tên; chỉ cần 1 mạng
+# depends_on KHÔNG bắt buộc: supabase-db + hogikids-n8n thuộc stack Supabase/n8n; app chỉ attach external network supabase_default.
+# XÁC MINH tên mạng thật trước khi up (phòng project-name khác):
+#   docker inspect supabase-db hogikids-n8n --format '{{json .NetworkSettings.Networks}}'
+# — máy này = supabase_default (n8n ở CẢ supabase_default + hogikids_hogikids-net). Đổi tên bên dưới nếu khác.
+networks:
+  supabase_default: { external: true }
