@@ -117,10 +117,10 @@ export function DataSection({
           <RestoreDialog shopName={shopName} />
         </div>
         <p className="text-xs text-muted-foreground">
-          Nhận bản <code>*.dump</code> (nút Sao lưu ngay, hoặc tải từ{" "}
+          Nhận bản <code>hogikids-*.dump</code> (nút Sao lưu ngay, hoặc tải từ{" "}
           <code>cloud:backups/</code>). KHÔNG nhận <code>.tar.gz</code>{" "}
-          backup-toàn-server. File &gt;~100MB hoặc máy chủ hỏng/DB trống → dùng
-          script restore qua CLI trực tiếp (không qua trang public), xem hướng dẫn
+          backup-toàn-server. File &gt;~100MB hoặc minipc hỏng/DB trống → dùng{" "}
+          <code>deploy/restore.sh</code> (Tailscale/CLI, không qua trang public), xem hướng dẫn
           deploy.
         </p>
       </div>

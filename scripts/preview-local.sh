@@ -3,7 +3,7 @@
 # Preview UI cục bộ AN TOÀN — chạy app trên máy dev nhưng trỏ vào DB TEST
 # (hogikids_test), HOÀN TOÀN tách khỏi data sản phẩm thật. Dùng để XEM bản nháp
 # trước khi deploy prod: bấm/sửa (giá vốn, ngưỡng…) thoải mái, KHÔNG ảnh hưởng
-# app thật (prod).
+# app thật app.example.com.
 #
 # Dùng:
 #   npm run preview

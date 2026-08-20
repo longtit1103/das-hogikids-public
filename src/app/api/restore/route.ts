@@ -334,7 +334,7 @@ export async function POST(request: Request): Promise<Response> {
       const message = err instanceof Error ? err.message : "Phục hồi thất bại.";
       return Response.json(
         {
-          error: `Phục hồi thất bại: ${message}. Dùng bản lùi bản lùi pre-restore-*.dump trong thư mục backups hoặc chạy deploy/restore.sh (xem hướng dẫn deploy).`,
+          error: `Phục hồi thất bại: ${message}. Dùng bản lùi pre-restore-*.dump hoặc chạy deploy/restore.sh (xem hướng dẫn deploy).`,
         },
         { status: 500 },
       );
