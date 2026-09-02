@@ -1,9 +1,9 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { clearBronzeBacklog } from "@/lib/bronze/bronze-only";
-import { SHOP_KHO, SHOP_SHOPEE, SHOP_TIKTOK } from "@/lib/bronze/streams";
+import { SHOP_KHO, SHOP_SHOPEE, SHOP_TIKTOK } from "../helpers/shop-ids-fixture";
 import { KET_CUC_CAN_XEM, xuLySuKienWebhook } from "@/lib/ingest/webhook-processor";
-import { WAREHOUSE_KHO_TONG } from "@/lib/ingest/webhook-stock";
+import { WAREHOUSE_KHO_TONG } from "../helpers/shop-ids-fixture";
 import { prisma } from "@/lib/prisma";
 
 import { seedReference, truncateBusinessTables } from "../helpers/test-db";

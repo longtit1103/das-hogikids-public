@@ -12,6 +12,7 @@ import { computeBackfilledPlatformFee, computePlatformFeeComponents } from "@/li
 import { computeVoucherBreakdown } from "@/lib/reports/voucher-breakdown";
 import { computeCashFlow, sumGmv } from "@/lib/reports/cash-flow";
 import { doiSoatTienVe } from "@/lib/reports/doi-soat-tien-ve";
+import { doiSoatTienVeShopee } from "@/lib/reports/doi-soat-tien-ve-shopee";
 import { requireUser } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
@@ -154,11 +155,22 @@ export default async function TaiChinhPage({ searchParams }: { searchParams: Pro
     // (getExpenseSummary trong computeCashFlow không tự backfill chi phí định kỳ).
     const monthRange = { from: startOfMonth(range.to), to: endOfMonth(range.to) };
     await ensureRecurringExpensesForMonths([monthRange.from]);
-    const [flow, doiSoat] = await Promise.all([computeCashFlow(monthRange), doiSoatTienVe(monthRange)]);
+    const [flow, doiSoat, doiSoatShopee] = await Promise.all([
+      computeCashFlow(monthRange),
+      doiSoatTienVe(monthRange),
+      doiSoatTienVeShopee(monthRange),
+    ]);
     const now = new Date();
     const isCurrentMonth =
       monthRange.from.getFullYear() === now.getFullYear() && monthRange.from.getMonth() === now.getMonth();
-    content = <CashFlowTab flow={flow} isCurrentMonth={isCurrentMonth} doiSoat={doiSoat} />;
+    content = (
+      <CashFlowTab
+        flow={flow}
+        isCurrentMonth={isCurrentMonth}
+        doiSoat={doiSoat}
+        doiSoatShopee={doiSoatShopee}
+      />
+    );
   }
 
   return (

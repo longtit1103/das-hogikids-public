@@ -181,6 +181,10 @@ enum SyncKind {
   META_ADS
   TIKTOK_ADS
   TIKTOK_SHOP // phí/đối soát TikTok Shop Open API — luồng RIÊNG, KHÔNG trộn vào PANCAKE
+  /// Chỉ số marketing TikTok Shop (workflow 02:30). TÁCH khỏi TIKTOK_SHOP có chủ đích: hai
+  /// workflow khác nhau, hai giờ khác nhau. Ghi chung kind thì lượt analytics 02:30 chạy OK sẽ
+  /// "sơn xanh" trạng thái tài chính 02:00 vừa chết — đúng bẫy mà route `raw` đã ghi cho ads.
+  TIKTOK_SHOP_ANALYTICS
   BACKUP
 }
 
@@ -573,6 +577,118 @@ model RawTiktokBusinessInvoice {
   @@index([fetchedAt])
 }
 
+/// Bronze — GMV Max cấp **ITEM** (`/gmv_max/report/get/`, dimensions = campaign × item_group × ngày).
+/// BẢNG RIÊNG, KHÔNG land chung `RawTiktokBusinessReport`: dòng item-level có đủ `campaign_id` +
+/// `stat_time_day` và KHÔNG có `metrics.spend` ⇒ `idExpr` của stream cũ sinh khoá TRÙNG KHÍT dòng
+/// campaign-level, `DISTINCT ON` khi dựng lại sẽ chọn 1 vứt 1 ⇒ chi phí ads dựng lại từ kho thô ra
+/// SỐ SAI (đo P0 25/08: bảng cũ đang có 45.480 dòng).
+/// `shopId` = advertiser_id. `externalId` = `<campaign_id>:<item_group_id>:<ngày>`.
+/// LAND_ONLY: `item_group_id` = `Product.code` — reader đọc thẳng Bronze, KHÔNG vào `Expense`
+/// (chi phí ads vào P&L vẫn là cấp campaign; breakdown item thiếu 0,60% — 825đ/137.180đ).
+model RawTiktokBusinessGmvMaxItem {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
+/// Bronze — `/analytics/202509/shop/performance` (granularity 1D). 1 dòng/NGÀY,
+/// `externalId` = `start_date`. LAND_ONLY: số sàn không hạch toán, reader đọc thẳng.
+/// BẤT BIẾN #2: SỐ THAM KHẢO — không chạm `pnl.ts`, không sửa phí sàn, không đối chiếu "lệch" với
+/// đơn Pancake (hai định nghĩa khác nhau).
+model RawTiktokShopAnalyticsShop {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
+/// Bronze — `/analytics/202605/shop_products/performance`. Record là TỔNG cả cửa sổ và KHÔNG có
+/// trường ngày ⇒ workflow gọi 1 request/NGÀY rồi bơm `_ngay`; `externalId` = `<_ngay>:<id>`.
+/// `_ngay` là khoá KỸ THUẬT do app bơm (`landRaw`), KHÔNG phải field TikTok trả về.
+model RawTiktokShopAnalyticsProduct {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
+/// Bronze — `/analytics/202605/shop_videos/performance`. `externalId` = `<_ngay>:<id>`.
+/// Có record `id = "0"` (TikTok gom "video không xác định") — hợp lệ, đừng lọc bỏ.
+model RawTiktokShopAnalyticsVideo {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
+/// Bronze — `/analytics/202509/shop_lives/performance`. Mảng nằm ở `data.live_stream_sessions`
+/// (KHÔNG phải `data.lives` — spec §4.4 đoán sai, đo thật P0 25/08). 1 dòng/PHIÊN,
+/// `externalId` = `id` phiên (record CÓ trường thời gian riêng nên KHÔNG cần `_ngay`).
+model RawTiktokShopAnalyticsLive {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
+/// Bronze — `POST /affiliate_seller/202410/orders/search`. Land theo DÒNG SKU, KHÔNG theo đơn:
+/// payload gốc lồng 2 tầng (`data.orders[].skus[]`), workflow làm phẳng mỗi dòng SKU thành một
+/// record + bơm 4 trường cấp đơn (`_don_id`, `_create_time`, `_delivery_time`, `_ngay`).
+/// `externalId` = `<_don_id>:<sku_id>` — mỗi dòng độc lập nên miễn nhiễm ca đơn nhiều SKU vắt
+/// qua 2 trang (land theo đơn thì trang sau ghi đè bản `skus` thiếu, mất dòng không log nào đỏ).
+/// `total_count` của TikTok đếm DÒNG SKU (đo 28/08: page_size 20 trả 19 đơn / 20 dòng).
+/// BẤT BIẾN #2: đơn/GMV/hoa hồng ở đây là SỐ SÀN TỰ NHẬN CÔNG — không chạm `pnl.ts`, không trộn
+/// với hoa hồng THẬT Pancake (`advanced_platform_fee.affiliate_commission`).
+model RawTiktokShopAffiliateOrder {
+  id          String   @id @default(cuid())
+  shopId      String
+  externalId  String
+  payloadHash String
+  payload     Json
+  fetchedAt   DateTime @default(now())
+  syncLogId   String?
+
+  @@unique([shopId, externalId, payloadHash])
+  @@index([shopId, externalId, fetchedAt])
+  @@index([fetchedAt])
+}
+
 /// Báo cáo CHI TIÊU quảng cáo Meta (Facebook Marketing API). `shopId` = ad account id (`act_...`).
 /// `externalId` = `<campaign_id>:<ngày>` — dòng insights không có `id`.
 /// ⚠️ `spend` trong payload là số CHƯA THUẾ. Meta KHÔNG có API hoá đơn cho tài khoản trả thẻ ⇒ VAT khai tay, ĐÃ CHỐT 10% (app nhân khi ghi Expense — payload Bronze giữ nguyên số chưa thuế).
@@ -628,4 +744,20 @@ model RawPancakeWebhookEvent {
   @@unique([shopId, receivedAt, payloadHash])
   @@index([shopId, receivedAt])
   @@index([receivedAt])
+}
+
+/// Bản sao lưu MỖI workflow n8n TRƯỚC khi lượt "Cài / cập nhật workflows" (provisioning từ
+/// /cai-dat) PUT đè bản đang chạy — hiện vật khôi phục được (log server không phải hiện vật:
+/// json-file rotate + xen log Next). Backup ghi KHÔNG thành công ⇒ provisioning BỎ QUA workflow
+/// đó, tuyệt đối không PUT (cổng fail-closed). Retention: provisioning tự tỉa, giữ N lượt gần
+/// nhất mỗi tên workflow.
+model N8nWorkflowBackup {
+  id        String   @id @default(uuid())
+  /// Tên workflow trên n8n tại thời điểm backup (khớp field `name` trong JSON export).
+  name      String
+  /// Nguyên văn JSON bản đang chạy do n8n API trả về (GET /workflows/{id}) — PUT lại là khôi phục.
+  payload   String
+  createdAt DateTime @default(now())
+
+  @@index([name, createdAt])
 }

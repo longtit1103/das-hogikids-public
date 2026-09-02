@@ -10,7 +10,9 @@ import {
 } from "@/lib/actions/data-admin";
 import { landRaw } from "@/lib/bronze/land-raw";
 import { prisma } from "@/lib/prisma";
-import { seedReference } from "./helpers/test-db";
+import { seedReference, seedShopIdSetting } from "./helpers/test-db";
+
+import { xoaCacheCauHinhShop } from "@/lib/ket-noi/cau-hinh-shop";
 
 /**
  * Integration test hợp đồng "Xóa dữ liệu giao dịch" + đường phục hồi, chạy trên
@@ -212,6 +214,10 @@ async function clearAll(): Promise<void> {
   await prisma.shopeeSettlement.deleteMany();
   await prisma.setting.deleteMany();
   await prisma.user.deleteMany();
+  // Vừa xoá TRỌN Setting ⇒ mất luôn shop id mà đường transform/rebuild đọc từ cấu hình
+  // (cau-hinh-shop.ts) — seed lại + xoá cache, nếu không dungLaiTuKhoTho ném "Chưa cấu hình".
+  await seedShopIdSetting();
+  xoaCacheCauHinhShop();
 }
 
 beforeAll(async () => {
@@ -230,6 +236,7 @@ afterAll(async () => {
 
 describe("deleteAllData", () => {
   it("gõ SAI tên shop → ok:false, KHÔNG xoá gì", async () => {
+    const settingTruoc = await prisma.setting.count();
     const res = await deleteAllData("Tên Sai");
     expect(res.ok).toBe(false);
     if (res.ok) return;
@@ -248,10 +255,13 @@ describe("deleteAllData", () => {
     expect(await prisma.tiktokPayment.count()).toBe(1);
     expect(await prisma.shopeeSettlement.count()).toBe(1);
     expect(await prisma.rawPancakeOrder.count()).toBe(1);
-    expect(await prisma.setting.count()).toBe(2);
+    // So trước/sau thay vì số cứng: seed toàn cục (tests/setup.ts + clearAll) còn thêm các key
+    // shop id cấu hình — ý định của assert là "Setting không bị đụng", không phải đếm đúng N.
+    expect(await prisma.setting.count()).toBe(settingTruoc);
   });
 
   it("gõ ĐÚNG tên shop → ok:true, xoá giao dịch, GIỮ cấu hình", async () => {
+    const settingTruoc = await prisma.setting.count();
     const res = await deleteAllData(SHOP_NAME);
     expect(res.ok).toBe(true);
 
@@ -273,8 +283,9 @@ describe("deleteAllData", () => {
     expect(await prisma.channel.count()).toBe(4);
     expect(await prisma.expenseCategory.count()).toBeGreaterThanOrEqual(7);
 
-    // Setting còn NGUYÊN — cấu hình, không phải giao dịch.
-    expect(await prisma.setting.count()).toBe(2);
+    // Setting còn NGUYÊN — cấu hình, không phải giao dịch. So trước/sau thay vì số cứng (seed
+    // toàn cục còn thêm key shop id cấu hình).
+    expect(await prisma.setting.count()).toBe(settingTruoc);
 
     // Dòng SyncLog kind BACKUP còn NGUYÊN: quy trình đúng là "Sao lưu ngay rồi mới xóa", xóa dấu
     // vết lượt sao lưu đi thì màn Cài đặt lại kêu "Chưa sao lưu lần nào" ngay sau lượt xóa —

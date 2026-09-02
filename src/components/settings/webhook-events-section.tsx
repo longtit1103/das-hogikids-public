@@ -20,6 +20,7 @@ const NHAN_KET_CUC: Record<string, string> = {
   "ton-kho-cu-hon": "Tồn kho — sự kiện cũ, đã bỏ qua",
   "ton-kho-bo-qua": "Tồn kho shop bán (bỏ qua — mã biến thể riêng)",
   "ton-kho-chua-co-bien-the": "Tồn kho — biến thể chưa có trong app (lượt API sẽ tạo)",
+  "ton-kho-chua-cau-hinh": "Tồn kho — chưa điền Warehouse ID (xem khối Khóa kết nối)",
   "ton-kho-can-xem": "TỒN KHO CẦN XEM",
   "san-pham-bo-qua": "Sản phẩm (bỏ qua — lấy từ API)",
   "bronze-only": "BRONZE_ONLY (tạm dừng Silver)",
@@ -55,12 +56,6 @@ export type SuKienCanXem = {
   processedNote: string | null;
 };
 
-const TEN_SHOP: Record<string, string> = {
-  "714995134": "Kho Tổng",
-  "1942992175": "Shopee",
-  "100975192": "TikTok",
-};
-
 function lucVN(d: Date): string {
   return d.toLocaleString("vi-VN", {
     timeZone: "Asia/Ho_Chi_Minh",
@@ -75,7 +70,10 @@ export function WebhookEventsSection({
   demTheoKetCuc,
   canXem,
   vaTonKho,
+  tenShop,
 }: {
+  /** Map shop id → tên hiển thị (từ cấu hình `Setting` — page dựng, rỗng khi chưa cấu hình). */
+  tenShop: Record<string, string>;
   /** Đếm sự kiện 7 ngày gần nhất theo kết cục (source=webhook — không tính kho nạp bù). */
   demTheoKetCuc: DongDemWebhook[];
   /** Sự kiện cần người xem trong CÙNG cửa sổ 7 ngày — mỗi dòng là một việc cần vào fix. */
@@ -134,7 +132,7 @@ export function WebhookEventsSection({
           <p className="font-semibold text-error">Sự kiện app chưa hiểu — cần vào fix:</p>
           {canXem.map((s) => (
             <p key={s.id} className="text-error/90">
-              {lucVN(s.receivedAt)} · {TEN_SHOP[s.shopId] ?? s.shopId} · {nhan(s.processedAs)} —{" "}
+              {lucVN(s.receivedAt)} · {tenShop[s.shopId] ?? s.shopId} · {nhan(s.processedAs)} —{" "}
               {s.processedNote ?? "(không có ghi chú)"}
             </p>
           ))}

@@ -146,5 +146,30 @@ export async function computeChannelRevenueAdsSeries(
   }));
 }
 
+/**
+ * Đếm ĐƠN HỢP LỆ (Pancake, cùng predicate `VALID_ORDER_STATUS` với các hàm trên) của MỘT kênh
+ * từng ngày. Dùng cho biểu đồ "Xu hướng ngày" của `/marketing` (tab Tổng quan) — đối chiếu đơn
+ * THẬT với lượt truy cập do TikTok Shop Analytics báo. Chỉ ĐẾM, không đụng công thức doanh thu
+ * (`revenue`/`ads` đã có sẵn ở `computeChannelRevenueAdsSeries`) ⇒ không phải viết lại `pnl.ts`.
+ */
+export async function computeChannelDailyOrderCount(
+  range: DateRange,
+  channelId: string
+): Promise<Array<{ date: string; orderCount: number }>> {
+  const to = endOfDay(range.to);
+  const orders = await prisma.order.findMany({
+    where: { orderedAt: { gte: range.from, lte: to }, status: VALID_ORDER_STATUS, channelId },
+    select: { orderedAt: true },
+  });
+
+  const countByDay = new Map<string, number>();
+  for (const o of orders) {
+    const key = format(o.orderedAt, DAY_KEY);
+    countByDay.set(key, (countByDay.get(key) ?? 0) + 1);
+  }
+
+  return enumerateDayKeys(range).map((date) => ({ date, orderCount: countByDay.get(date) ?? 0 }));
+}
+
 // Gộp point ngày → tuần: `group-by-week.ts` — module thuần riêng vì chart Client Component cũng
 // gọi (import từ đây là kéo Prisma vào browser bundle của /kenh).

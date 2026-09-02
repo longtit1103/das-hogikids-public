@@ -35,6 +35,22 @@ const EXPENSE_CATEGORIES = [
   { id: "other", name: "Khác" },
 ];
 
+/**
+ * Seed lại 4 shop id + warehouse fixture vào `Setting` — cho suite nào tự `setting.deleteMany()`
+ * (vd delete-all-data). Bình thường không cần gọi: `tests/setup.ts` đã seed trước mỗi file; nhưng
+ * suite xoá trọn bảng thì mọi đường transform/rebuild sau đó throw "Chưa cấu hình shop ID".
+ * Nhớ kèm `xoaCacheCauHinhShop()` phía caller nếu suite đã lỡ mồi cache bằng giá trị khác.
+ */
+export async function seedShopIdSetting(): Promise<void> {
+  const { Prisma } = await import("@prisma/client");
+  const { SEED_SHOP_ID } = await import("./shop-ids-fixture");
+  await prisma.$executeRaw`
+    INSERT INTO "Setting" (key, value)
+    VALUES ${Prisma.join(SEED_SHOP_ID.map(([k, v]) => Prisma.sql`(${k}, ${v})`))}
+    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+  `;
+}
+
 /** Upsert dữ liệu tham chiếu (kênh + danh mục hệ thống). Idempotent. */
 export async function seedReference(): Promise<void> {
   for (const c of CHANNELS) {

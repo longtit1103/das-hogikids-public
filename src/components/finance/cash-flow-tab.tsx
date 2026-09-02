@@ -1,6 +1,7 @@
 import { formatVnd } from "@/lib/format";
 import type { CashFlow, ShopeeCashIn, TiktokCashIn } from "@/lib/reports/cash-flow";
 import type { DoiSoatTienVe } from "@/lib/reports/doi-soat-tien-ve";
+import type { DoiSoatShopee } from "@/lib/reports/doi-soat-tien-ve-shopee";
 import { cn } from "@/lib/utils";
 
 import { DoiSoatSection } from "./doi-soat-section";
@@ -76,11 +77,13 @@ export function CashFlowTab({
   flow,
   isCurrentMonth,
   doiSoat,
+  doiSoatShopee,
 }: {
   flow: CashFlow;
   isCurrentMonth: boolean;
   /** Đối soát tiền về cấp đơn (TikTok). Vắng → khối đối soát không hiện. */
   doiSoat?: DoiSoatTienVe;
+  doiSoatShopee?: DoiSoatShopee;
 }) {
   const balanceNegative = flow.balance < 0;
   const { tiktok, shopee } = flow.actualIn;
@@ -158,7 +161,12 @@ export function CashFlowTab({
         </p>
       </div>
 
-      {doiSoat && <DoiSoatSection doiSoat={doiSoat} />}
+      {doiSoat && <DoiSoatSection doiSoat={doiSoat} tenKenh="TikTok" nguon="quyết toán TikTok qua API" />}
+      {/* Hai khối RIÊNG, không gộp số: hai kênh có nguồn dữ liệu và độ phủ khác hẳn nhau — gộp bộ
+          đếm lại là làm một con số mất nghĩa để đổi lấy một dòng ngắn hơn. */}
+      {doiSoatShopee && (
+        <DoiSoatSection doiSoat={doiSoatShopee} tenKenh="Shopee" nguon="ví Shopee nhập tay" />
+      )}
 
       {flow.outBreakdown.length > 0 && (
         <div className="rounded-xl border border-hairline p-4">

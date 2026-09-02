@@ -41,6 +41,8 @@ import {
   renameExpenseCategory,
   toggleExpenseCategoryHidden,
 } from "@/lib/actions/settings-expense-categories";
+import { caiWorkflowsN8n, luuKetNoiN8n } from "@/lib/actions/n8n-ket-noi";
+import { doiVaLuuTokenMeta, luuKhoaKetNoi } from "@/lib/actions/settings-khoa-ket-noi";
 import { updateDefaultLowStockThreshold } from "@/lib/actions/settings-low-stock";
 import { updateShopInfo } from "@/lib/actions/settings-shop-info";
 import { importShopeeWallet } from "@/lib/actions/shopee-wallet-import";
@@ -77,6 +79,12 @@ const DUONG_GHI: [string, () => Promise<ActionResult<unknown>>][] = [
   ["settings-expense-categories.toggleExpenseCategoryHidden", () => toggleExpenseCategoryHidden("id-gia", true)],
   ["settings-expense-categories.deleteExpenseCategory", () => deleteExpenseCategory("id-gia")],
   ["settings-low-stock.updateDefaultLowStockThreshold", () => updateDefaultLowStockThreshold(5)],
+  // Khóa kết nối ghi bảng `Setting` — đúng bảng mà lượt phục hồi nạp lại, lùi mất là hỏng lặng.
+  ["settings-khoa-ket-noi.luuKhoaKetNoi", () => luuKhoaKetNoi("pancake", { pancakeApiKeyKho: "khoa-gia" })],
+  ["settings-khoa-ket-noi.doiVaLuuTokenMeta", () => doiVaLuuTokenMeta("token-gia")],
+  // Khối Kết nối n8n: ghi Setting + ghi/kích hoạt workflow bên n8n — lùi giữa lượt phục hồi là hỏng lặng.
+  ["n8n-ket-noi.luuKetNoiN8n", () => luuKetNoiN8n({ n8nBaseUrl: "http://n8n-gia:5678" })],
+  ["n8n-ket-noi.caiWorkflowsN8n", () => caiWorkflowsN8n()],
   ["security.changePassword", () => changePassword(new FormData())],
   ["sync.triggerSyncNow", () => triggerSyncNow()],
   // 3 mục dưới đây do PHÉP QUÉT cuối file lôi ra 18/08: chúng gọi `dangPhucHoi()` từ lâu nhưng
@@ -164,6 +172,8 @@ const CHI_DOC: Record<string, string> = {
   "data-admin.demDonMoCoi": "đếm",
   "data-admin.demAdsMoCoi": "đếm",
   "settings-channels.countRecomputableOrders": "đếm số đơn cho dialog, không ghi",
+  "settings-khoa-ket-noi.kiemTraKetNoiNguon": "đọc kho khoá + gọi thử nguồn ngoài, không ghi",
+  "n8n-ket-noi.kiemTraKetNoiN8n": "đọc kho khoá + GET danh sách workflow bên n8n, không ghi",
   "shopee-wallet-import.previewShopeeWalletImport": "đọc file ví + checksum, không ghi",
   "sync.getLatestSync": "đọc mốc đồng bộ gần nhất",
 };

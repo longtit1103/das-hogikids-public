@@ -1,6 +1,6 @@
 import { chanRouteKhiDangPhucHoi } from "@/lib/backup/khoa-bao-tri";
 import { isBronzeOnly } from "@/lib/bronze/bronze-only";
-import { SHOP_KHO } from "@/lib/bronze/streams";
+import { layCauHinhShop } from "@/lib/ket-noi/cau-hinh-shop";
 import { transformFromRaw } from "@/lib/bronze/transform-from-raw";
 import { requireIngestSecret } from "@/lib/ingest/ingest-auth";
 import { KEY_MOC_VA_TON_KHO } from "@/lib/ingest/stock-resync-status";
@@ -56,10 +56,11 @@ export async function POST(req: Request): Promise<Response> {
     // (SyncLog đẻ 1 dòng/trang ⇒ ~60k dòng/15 ngày). Không mất gì: quá trần là hỏng rồi, không cần
     // biết chính xác hỏng từ bao giờ.
     const tuLuc = new Date(Date.now() - TRAN_TUOI_GIO * 3_600_000);
+    const { kho } = await layCauHinhShop();
     const [moc] = await prisma.$queryRaw<{ chayLuc: Date | null }[]>`
       SELECT MAX("startedAt") AS "chayLuc" FROM "SyncLog"
       WHERE kind = 'PANCAKE' AND status = 'OK' AND "startedAt" >= ${tuLuc}
-        AND stats->>'stream' = 'products' AND stats->>'shopId' = ${SHOP_KHO}
+        AND stats->>'stream' = 'products' AND stats->>'shopId' = ${kho}
     `;
     const tuoiGio = moc?.chayLuc
       ? (Date.now() - moc.chayLuc.getTime()) / 3_600_000

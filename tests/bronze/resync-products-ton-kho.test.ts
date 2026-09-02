@@ -5,7 +5,7 @@ const SECRET = "test-ingest-secret";
 process.env.INGEST_SECRET = SECRET;
 
 import { POST } from "@/app/api/ingest/resync-products/route";
-import { SHOP_KHO } from "@/lib/bronze/streams";
+import { SHOP_KHO } from "../helpers/shop-ids-fixture";
 import { prisma } from "@/lib/prisma";
 
 import { seedReference, truncateBusinessTables } from "../helpers/test-db";

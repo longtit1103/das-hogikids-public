@@ -87,8 +87,14 @@ export type DonHoanConTien = {
   code: string;
   pancakeId: string;
   status: OrderStatus;
-  /** Doanh thu sàn ghi nhận cho đơn (revenue_amount cộng dồn). */
-  doanhThuSan: number;
+  /**
+   * Doanh thu sàn ghi nhận cho đơn (revenue_amount cộng dồn).
+   *
+   * `null` = NGUỒN KHÔNG ĐO ĐƯỢC đại lượng này, không phải "đo được và bằng 0" — ví Shopee chỉ có số
+   * tiền vào/ra, không có khái niệm doanh thu sàn ghi nhận. In `0` cho ca đó là bịa số, và người đọc
+   * sẽ kết luận "sàn đã huỷ ghi nhận doanh thu" trong khi sàn chưa từng nói gì.
+   */
+  doanhThuSan: number | null;
   /** NET sàn trả về. Dương = tiền đã về mà P&L đang loại đơn này. */
   sanTra: number;
   soGiaoDich: number;
